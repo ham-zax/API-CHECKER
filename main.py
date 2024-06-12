@@ -12,7 +12,7 @@ seen_hostnodes = set()
 def fetch_api_data():
     try:
         response = requests.get(API_URL, params=PARAMS)
-        response.raise_for_status() 
+        response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         handle_error(e)
