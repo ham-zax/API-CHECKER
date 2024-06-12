@@ -1,5 +1,5 @@
 import requests
-from tabulate import tabulate
+from tabulate import tabulate  # Ensure tabulate is imported here if needed
 from config import TELEGRAM_TOKEN, CHAT_ID
 
 def send_telegram_message(message):

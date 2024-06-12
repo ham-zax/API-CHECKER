@@ -3,6 +3,7 @@ import time
 import signal
 import sys
 import random
+from tabulate import tabulate  # Import tabulate module
 from config import API_URL, PARAMS, INTERVAL
 from utils import process_response, handle_error, notify_new_3995
 
