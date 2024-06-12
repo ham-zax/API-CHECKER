@@ -3,8 +3,9 @@ import requests
 import time
 import signal
 import sys
+import threading
 from config import API_URL, PARAMS, INTERVAL
-from utils import process_response, handle_error, notify_new_3995
+from utils import process_response, handle_error, notify_new_3995, start_bot
 
 # To track seen hostnodes with '3995' CPU type
 seen_hostnodes = set()
@@ -25,10 +26,15 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     print("Running the script. Press Ctrl+C to stop.")
 
+    # Start the bot in a separate thread
+    start_bot_thread = threading.Thread(target=start_bot)
+    start_bot_thread.start()
+
     while True:
+        print("Checking for new hostnodes...")
         data = fetch_api_data()
         if data:
-            new_3995_nodes = process_response(data, seen_hostnodes)
+            new_3995_nodes = process_response(data, seen_hostnodes, notify=True)
             if new_3995_nodes:
                 notify_new_3995(new_3995_nodes)
         time.sleep(INTERVAL)
