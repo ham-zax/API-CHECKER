@@ -1,11 +1,10 @@
-# api_checker/main.py
 import requests
 import time
 import signal
 import sys
-import threading
+import random
 from config import API_URL, PARAMS, INTERVAL
-from utils import process_response, handle_error, notify_new_3995, start_bot
+from utils import process_response, handle_error, notify_new_3995
 
 # To track seen hostnodes with '3995' CPU type
 seen_hostnodes = set()
@@ -17,6 +16,7 @@ def fetch_api_data():
         return response.json()
     except requests.exceptions.RequestException as e:
         handle_error(e)
+        return None  # Return None in case of an error
 
 def main():
     def signal_handler(sig, frame):
@@ -26,18 +26,23 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     print("Running the script. Press Ctrl+C to stop.")
 
-    # Start the bot in a separate thread
-    start_bot_thread = threading.Thread(target=start_bot)
-    start_bot_thread.start()
-
     while True:
         print("Checking for new hostnodes...")
         data = fetch_api_data()
         if data:
-            new_3995_nodes = process_response(data, seen_hostnodes, notify=True)
+            new_3995_nodes, current_3995_nodes = process_response(data, seen_hostnodes)
             if new_3995_nodes:
                 notify_new_3995(new_3995_nodes)
-        time.sleep(INTERVAL)
+
+            # Display current 3995 nodes in the console
+            if current_3995_nodes:
+                table = tabulate(current_3995_nodes, headers="keys")
+                print(table)
+        
+        # Calculate the next sleep interval randomly within the specified range
+        sleep_interval = random.randint(int(INTERVAL * 0.8), int(INTERVAL * 1.2))
+        print(f"Sleeping for {sleep_interval} seconds...")
+        time.sleep(sleep_interval)
 
 if __name__ == "__main__":
     main()

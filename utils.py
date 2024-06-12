@@ -1,10 +1,6 @@
-# api_checker/utils.py
 import requests
+from tabulate import tabulate
 from config import TELEGRAM_TOKEN, CHAT_ID
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, CallbackContext
-
-bot = Bot(token=TELEGRAM_TOKEN)
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -19,13 +15,23 @@ def send_telegram_message(message):
     except requests.exceptions.RequestException as e:
         print(f"Failed to send Telegram message: {e}")
 
-def process_response(data, seen_hostnodes, notify=False):
+def process_response(data, seen_hostnodes):
     new_3995_nodes = []
+    current_3995_nodes = []
+
     if data.get("success"):
         hostnodes = data.get("hostnodes", {})
         for key, hostnode in hostnodes.items():
             cpu_info = hostnode['specs']['cpu']
             if "3995" in cpu_info['type']:
+                current_3995_nodes.append({
+                    'id': key,
+                    'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
+                    'cpu': cpu_info['type'],
+                    'amount': cpu_info['amount'],
+                    'price': cpu_info['price'],
+                    'status': 'Online' if hostnode['status']['online'] else 'Offline'
+                })
                 if key not in seen_hostnodes:
                     seen_hostnodes.add(key)
                     new_3995_nodes.append({**hostnode, 'id': key})
@@ -38,41 +44,17 @@ def process_response(data, seen_hostnodes, notify=False):
                     )
                     if len(message) > 4096:
                         message = message[:4093] + "..."
-                    print(message)
-                    if notify:
-                        send_telegram_message(message)
+                    send_telegram_message(message)
     else:
         print("API request was not successful")
-    return new_3995_nodes
+    
+    return new_3995_nodes, current_3995_nodes
+
+def handle_error(error):
+    print(f"An error occurred: {error}")
 
 def notify_new_3995(new_3995_nodes):
     print(f"Found {len(new_3995_nodes)} new hostnodes with 3995 CPU:")
     for node in new_3995_nodes:
         node_id = node.get('id', 'Unknown ID')
         print(f"Hostnode ID: {node_id}")
-
-def handle_error(error):
-    print(f"An error occurred: {error}")
-
-def list_all_3995_nodes(seen_hostnodes):
-    message = "Current hostnodes with 3995 CPU:\n"
-    for node_id in seen_hostnodes:
-        message += f"Hostnode ID: {node_id}\n"
-    if len(message) > 4096:
-        message = message[:4093] + "..."
-    send_telegram_message(message)
-
-def handle_all_command(update: Update, context: CallbackContext):
-    list_all_3995_nodes(context.bot_data['seen_hostnodes'])
-    update.message.reply_text("Listing all current 3995 CPUs.")
-
-def start_bot():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    dp.bot_data['seen_hostnodes'] = set()
-
-    dp.add_handler(CommandHandler('all', handle_all_command))
-
-    updater.start_polling()
-    updater.idle()
