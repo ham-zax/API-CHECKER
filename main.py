@@ -1,8 +1,13 @@
-
 # api_checker/main.py
 import requests
-from config import API_URL, PARAMS
-from utils import process_response, handle_error
+import time
+import signal
+import sys
+from config import API_URL, PARAMS, INTERVAL
+from utils import process_response, handle_error, notify_new_3995
+
+# To track seen hostnodes with '3995' CPU type
+seen_hostnodes = set()
 
 def fetch_api_data():
     try:
@@ -13,9 +18,20 @@ def fetch_api_data():
         handle_error(e)
 
 def main():
-    data = fetch_api_data()
-    if data:
-        process_response(data)
+    def signal_handler(sig, frame):
+        print("Stopping the script...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    print("Running the script. Press Ctrl+C to stop.")
+
+    while True:
+        data = fetch_api_data()
+        if data:
+            new_3995_nodes = process_response(data, seen_hostnodes)
+            if new_3995_nodes:
+                notify_new_3995(new_3995_nodes)
+        time.sleep(INTERVAL)
 
 if __name__ == "__main__":
     main()
