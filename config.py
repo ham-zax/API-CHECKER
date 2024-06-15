@@ -10,5 +10,5 @@ TELEGRAM_TOKEN = '7119782068:AAHm5qatChCeyaHdNmlt6FBGF8NxVxj0OV4'
 CHAT_ID = '376895924'
 # Configuration for CPU and GPU search
 CPU_TYPE = "3995"
-GPU_TYPES = ["l40","6000"]  # List of GPU types to search for
+GPU_TYPES = ["l40"]  # List of GPU types to search for
 MAX_GPU_PRICE = 0  # Set the maximum price for GPU filtering; 0 means no filtering
