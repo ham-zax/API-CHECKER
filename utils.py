@@ -159,7 +159,7 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
         ])
         index += 1
 
-    headers = ["Index", "ID", "Type", "Amount", "Price ($)", "Cost per Device ($)", "Multiplier", "Efficiency", "Calculation"]
+    headers = ["Index", "ID", "Type", "Amount", "Price ($)", "Cost/Device ($)", "Multiplier", "Efficiency", "Calculation"]
     table_image = generate_table_image(combined_data, headers)
 
     if not send_telegram_message(table_image):
@@ -176,12 +176,12 @@ def notify_new_cpu_nodes(new_cpu_nodes: List[Dict[str, Any]]) -> None:
     logging.info(f"Found {len(new_cpu_nodes)} new hostnodes with {CPU_TYPE} CPU:")
     for node in new_cpu_nodes:
         node_id = node.get('id', 'Unknown ID')
-        logging.info(f"Hostnode ID: {node_id}")
+        # logging.info(f"Hostnode ID: {node_id}")
 
 def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
     logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with GPUs up to price {MAX_GPU_PRICE}:")
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
-        logging.info(f"Hostnode ID: {node_id}")
+        # logging.info(f"Hostnode ID: {node_id}")
 
 # Example of how to call process_response function with dummy data
