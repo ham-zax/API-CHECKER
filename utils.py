@@ -23,10 +23,14 @@ def send_telegram_message(message):
 def parse_gpu_types(gpu_types):
     gpu_multipliers = {}
     for entry in gpu_types:
-        try:
-            gpu, multiplier = entry.split(",")
+        parts = entry.split(",")
+        if len(parts) == 2:
+            gpu, multiplier = parts
             gpu_multipliers[gpu.strip().lower()] = float(multiplier)
-        except ValueError:
+        elif len(parts) == 1:
+            gpu = parts[0]
+            gpu_multipliers[gpu.strip().lower()] = None
+        else:
             logging.error(f"Invalid GPU entry: {entry}")
     return gpu_multipliers
 
@@ -82,15 +86,7 @@ def process_response(data, seen_hostnodes):
                     amount = gpu_specs['amount'] if gpu_specs['amount'] > 0 else 1  # If amount is 0, assume 1 GPU
                     price = gpu_specs['price']
                     multiplier = get_multiplier(gpu_type, gpu_multipliers)
-                    if multiplier is not None:
-                        total_multiplier = multiplier * amount
-                        efficiency = round(total_multiplier / price, 2) if price > 0 else 0
-                        cost_per_device = price / amount if amount > 0 else price
-                        calculation = f"({multiplier} x {amount}) / {price}"
-                    else:
-                        efficiency = "N/A"
-                        cost_per_device = price / amount if amount > 0 else price
-                        calculation = "N/A"
+                    cost_per_device = price / amount if amount > 0 else price
 
                     current_gpu_nodes.append({
                         'id': key,
@@ -101,29 +97,45 @@ def process_response(data, seen_hostnodes):
                         'status': 'Online' if hostnode['status']['online'] else 'Offline',
                         'cost_per_device': cost_per_device,
                         'multiplier': multiplier if multiplier else "N/A",
-                        'efficiency': efficiency,
-                        'calculation': calculation
+                        'efficiency': None if multiplier is None else round((multiplier * amount) / price, 2),
+                        'calculation': None if multiplier is None else f"({multiplier} x {amount}) / {price}"
                     })
+
                     if key not in seen_hostnodes:
                         seen_hostnodes.add(key)
                         new_gpu_nodes.append({**hostnode, 'id': key})
+
+                    if multiplier is not None:
                         message = (
                             f"*Hostnode ID:* `{key}`\n"
+                            f"*Location:* {hostnode['location']['city']}, {hostnode['location']['country']}\n"
                             f"*GPU:* {gpu_type}\n"
                             f"*Amount:* {gpu_specs['amount']}\n"
                             f"*Price:* {price}\n"
                             f"*Cost per device:* {cost_per_device}\n"
-                            f"*Multiplier:* {multiplier if multiplier else 'N/A'}\n"
-                            f"*Efficiency:* {efficiency}\n"
-                            f"*Calculation:* {calculation}\n"
+                            f"*Multiplier:* {multiplier}\n"
+                            f"*Efficiency:* {round((multiplier * amount) / price, 2)}\n"
+                            f"*Calculation:* ({multiplier} x {amount}) / {price}\n"
                             f"*Status:* {'Online' if hostnode['status']['online'] else 'Offline'}\n"
                             f"{'='*40}"
                         )
-                        if len(message) > 4096:
-                            message = message[:4093] + "..."
-                        if not send_telegram_message(message):
-                            telegram_failed = True
-                        print(message)
+                    else:
+                        message = (
+                            f"*Hostnode ID:* `{key}`\n"
+                            f"*Location:* {hostnode['location']['city']}, {hostnode['location']['country']}\n"
+                            f"*GPU:* {gpu_type}\n"
+                            f"*Amount:* {gpu_specs['amount']}\n"
+                            f"*Price:* {price}\n"
+                            f"*Cost per device:* {cost_per_device}\n"
+                            f"*Status:* {'Online' if hostnode['status']['online'] else 'Offline'}\n"
+                            f"{'='*40}"
+                        )
+
+                    if len(message) > 4096:
+                        message = message[:4093] + "..."
+                    if not send_telegram_message(message):
+                        telegram_failed = True
+                    print(message)
     else:
         logging.error("API request was not successful")
 
