@@ -54,13 +54,15 @@ def process_response(data, seen_hostnodes):
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
                 if any(gpu in gpu_type for gpu in GPU_TYPES) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE):
+                    cost_per_device = gpu_specs['price'] / gpu_specs['amount'] if gpu_specs['amount'] > 1 else gpu_specs['price']
                     current_gpu_nodes.append({
                         'id': key,
                         'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
                         'gpu': gpu_type,
                         'amount': gpu_specs['amount'],
                         'price': gpu_specs['price'],
-                        'status': 'Online' if hostnode['status']['online'] else 'Offline'
+                        'status': 'Online' if hostnode['status']['online'] else 'Offline',
+                        'cost_per_device': cost_per_device
                     })
                     if key not in seen_hostnodes:
                         seen_hostnodes.add(key)
@@ -68,7 +70,7 @@ def process_response(data, seen_hostnodes):
                         message = (
                             f"Hostnode ID: {key}\n"
                             f"Location: {hostnode['location']['city']}, {hostnode['location']['country']}\n"
-                            f"GPU: {gpu_type} - Amount: {gpu_specs['amount']} - Price: {gpu_specs['price']}\n"
+                            f"GPU: {gpu_type} - Amount: {gpu_specs['amount']} - Price: {gpu_specs['price']} - Cost per device: {cost_per_device}\n"
                             f"Status: {'Online' if hostnode['status']['online'] else 'Offline'}\n"
                             f"{'='*40}"
                         )
