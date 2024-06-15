@@ -83,6 +83,9 @@ def process_response(data, seen_hostnodes):
         for key, hostnode in hostnodes.items():
             cpu_info = hostnode['specs']['cpu']
             if CPU_TYPE in cpu_info['type']:
+                if key not in seen_hostnodes:
+                    seen_hostnodes.add(key)
+                    new_cpu_nodes.append({**hostnode, 'id': key})
                 current_cpu_nodes.append({
                     'id': key,
                     'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
@@ -91,22 +94,6 @@ def process_response(data, seen_hostnodes):
                     'price': f"${cpu_info['price']:.2f}",
                     'status': 'Online' if hostnode['status']['online'] else 'Offline'
                 })
-                if key not in seen_hostnodes:
-                    seen_hostnodes.add(key)
-                    new_cpu_nodes.append({**hostnode, 'id': key})
-                    message = (
-                        f"*Hostnode ID:* `{key}`\n"
-                        f"*Location:* {hostnode['location']['city']}, {hostnode['location']['country']}\n"
-                        f"*CPU:* {cpu_info['type']}\n"
-                        f"*Amount:* {cpu_info['amount']}\n"
-                        f"*Price:* ${cpu_info['price']:.2f}\n"
-                        f"*Status:* {'Online' if hostnode['status']['online'] else 'Offline'}\n"
-                        f"{'='*40}"
-                    )
-                    if len(message) > 4096:
-                        message = message[:4093] + "..."
-                    send_telegram_message(message)
-                    print(message)
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
@@ -116,6 +103,10 @@ def process_response(data, seen_hostnodes):
                     total_price = price_per_unit * amount
                     multiplier = get_multiplier(gpu_type, gpu_multipliers)
                     cost_per_device = price_per_unit  # Price per unit is the same as cost per device
+
+                    if key not in seen_hostnodes:
+                        seen_hostnodes.add(key)
+                        new_gpu_nodes.append({**hostnode, 'id': key})
 
                     current_gpu_nodes.append({
                         'id': key,
@@ -129,10 +120,6 @@ def process_response(data, seen_hostnodes):
                         'efficiency': None if multiplier is None else round((multiplier * amount) / total_price, 2),
                         'calculation': None if multiplier is None else f"({multiplier:.2f} x {amount}) / {total_price:.2f}"
                     })
-
-                    if key not in seen_hostnodes:
-                        seen_hostnodes.add(key)
-                        new_gpu_nodes.append({**hostnode, 'id': key})
 
     else:
         logging.error("API request was not successful")
