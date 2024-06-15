@@ -36,13 +36,14 @@ def parse_gpu_types(gpu_types: List[str]) -> List[Tuple[str, Optional[float]]]:
     return parsed_types
 
 def get_multiplier(gpu_type: str, gpu_multipliers: List[Tuple[str, Optional[float]]]) -> Optional[float]:
+    gpu_type = gpu_type.lower()
     # Sort by length of the GPU name in descending order to prioritize more specific matches
     gpu_multipliers = sorted(gpu_multipliers, key=lambda x: len(x[0]), reverse=True)
     for gpu, multiplier in gpu_multipliers:
-        if gpu == gpu_type.lower():
+        if gpu == gpu_type:
             return multiplier
     for gpu, multiplier in gpu_multipliers:
-        if gpu in gpu_type.lower():
+        if gpu in gpu_type:
             return multiplier
     return None
 
