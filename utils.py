@@ -5,14 +5,13 @@ from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
+from typing import List, Dict, Tuple, Union, Optional, Any
 
 logging.basicConfig(level=logging.INFO)
 
-def send_telegram_message(photo):
+def send_telegram_message(photo: io.BytesIO) -> bool:
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    data = {
-        'chat_id': CHAT_ID
-    }
+    data = {'chat_id': CHAT_ID}
     try:
         files = {'photo': photo}
         response = requests.post(url, data=data, files=files)
@@ -22,7 +21,7 @@ def send_telegram_message(photo):
         return False
     return True
 
-def parse_gpu_types(gpu_types):
+def parse_gpu_types(gpu_types: List[str]) -> Dict[str, Optional[float]]:
     gpu_multipliers = {}
     for entry in gpu_types:
         parts = entry.split(",")
@@ -36,31 +35,30 @@ def parse_gpu_types(gpu_types):
             logging.error(f"Invalid GPU entry: {entry}")
     return gpu_multipliers
 
-def get_multiplier(gpu_type, gpu_multipliers):
+def get_multiplier(gpu_type: str, gpu_multipliers: Dict[str, Optional[float]]) -> Optional[float]:
     for gpu, multiplier in gpu_multipliers.items():
         if gpu in gpu_type.lower():
             return multiplier
     return None
 
-def shorten_id(node_id):
+def shorten_id(node_id: str) -> str:
     return f"{node_id[:2]}..{node_id[-2:]}"
 
-def generate_table_image(data, headers):
-    fig, ax = plt.subplots(figsize=(15, len(data) * 0.5))  # Adjust the figure size as needed
+def generate_table_image(data: List[List[Any]], headers: List[str]) -> io.BytesIO:
+    fig, ax = plt.subplots(figsize=(15, len(data) * 0.5))
     ax.axis('tight')
     ax.axis('off')
     table = ax.table(cellText=data, colLabels=headers, cellLoc='center', loc='center')
 
-    # Adjust column widths
-    col_widths = [0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]  # Set widths proportional to the content
+    col_widths = [0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]
     for i, width in enumerate(col_widths):
-        for j in range(len(data) + 1):  # Include header
+        for j in range(len(data) + 1):
             cell = table[j, i]
             cell.set_width(width)
     
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1, 1.5)  # Adjust the scaling as needed
+    table.scale(1, 1.5)
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
@@ -69,7 +67,7 @@ def generate_table_image(data, headers):
 
     return buf
 
-def process_response(data, seen_hostnodes):
+def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     new_cpu_nodes = []
     new_gpu_nodes = []
     current_cpu_nodes = []
@@ -102,7 +100,7 @@ def process_response(data, seen_hostnodes):
                     price_per_unit = gpu_specs['price']
                     total_price = price_per_unit * amount
                     multiplier = get_multiplier(gpu_type, gpu_multipliers)
-                    cost_per_device = price_per_unit  # Price per unit is the same as cost per device
+                    cost_per_device = price_per_unit
 
                     if key not in seen_hostnodes:
                         seen_hostnodes.add(key)
@@ -156,17 +154,18 @@ def process_response(data, seen_hostnodes):
 
     return new_cpu_nodes, current_cpu_nodes, new_gpu_nodes, current_gpu_nodes
 
-def handle_error(error):
+def handle_error(error: Exception) -> None:
     logging.error(f"An error occurred: {error}")
 
-def notify_new_cpu_nodes(new_cpu_nodes):
+def notify_new_cpu_nodes(new_cpu_nodes: List[Dict[str, Any]]) -> None:
     logging.info(f"Found {len(new_cpu_nodes)} new hostnodes with {CPU_TYPE} CPU:")
     for node in new_cpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         logging.info(f"Hostnode ID: {node_id}")
 
-def notify_new_gpu_nodes(new_gpu_nodes):
+def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
     logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with GPUs up to price {MAX_GPU_PRICE}:")
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         logging.info(f"Hostnode ID: {node_id}")
+
