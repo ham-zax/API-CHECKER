@@ -82,23 +82,24 @@ def process_response(data, seen_hostnodes):
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
-                if any(gpu in gpu_type.lower() for gpu in gpu_multipliers) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE):
-                    amount = gpu_specs['amount'] if gpu_specs['amount'] > 0 else 1  # If amount is 0, assume 1 GPU
-                    price = gpu_specs['price']
+                if gpu_specs['amount'] > 0 and (any(gpu in gpu_type.lower() for gpu in gpu_multipliers) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE)):
+                    amount = gpu_specs['amount']
+                    price_per_unit = gpu_specs['price']
+                    total_price = price_per_unit * amount
                     multiplier = get_multiplier(gpu_type, gpu_multipliers)
-                    cost_per_device = price / amount if amount > 0 else price
+                    cost_per_device = price_per_unit  # Price per unit is the same as cost per device
 
                     current_gpu_nodes.append({
                         'id': key,
                         'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
                         'gpu': gpu_type,
-                        'amount': gpu_specs['amount'],
-                        'price': price,
+                        'amount': amount,
+                        'price': total_price,
                         'status': 'Online' if hostnode['status']['online'] else 'Offline',
                         'cost_per_device': cost_per_device,
                         'multiplier': multiplier if multiplier else "N/A",
-                        'efficiency': None if multiplier is None else round((multiplier * amount) / price, 2),
-                        'calculation': None if multiplier is None else f"({multiplier} x {amount}) / {price}"
+                        'efficiency': None if multiplier is None else round((multiplier * amount) / total_price, 2),
+                        'calculation': None if multiplier is None else f"({multiplier} x {amount}) / {total_price}"
                     })
 
                     if key not in seen_hostnodes:
@@ -110,12 +111,12 @@ def process_response(data, seen_hostnodes):
                             f"*Hostnode ID:* `{key}`\n"
                             f"*Location:* {hostnode['location']['city']}, {hostnode['location']['country']}\n"
                             f"*GPU:* {gpu_type}\n"
-                            f"*Amount:* {gpu_specs['amount']}\n"
-                            f"*Price:* {price}\n"
+                            f"*Amount:* {amount}\n"
+                            f"*Price:* {total_price}\n"
                             f"*Cost per device:* {cost_per_device}\n"
                             f"*Multiplier:* {multiplier}\n"
-                            f"*Efficiency:* {round((multiplier * amount) / price, 2)}\n"
-                            f"*Calculation:* ({multiplier} x {amount}) / {price}\n"
+                            f"*Efficiency:* {round((multiplier * amount) / total_price, 2)}\n"
+                            f"*Calculation:* ({multiplier} x {amount}) / {total_price}\n"
                             f"*Status:* {'Online' if hostnode['status']['online'] else 'Offline'}\n"
                             f"{'='*40}"
                         )
@@ -124,8 +125,8 @@ def process_response(data, seen_hostnodes):
                             f"*Hostnode ID:* `{key}`\n"
                             f"*Location:* {hostnode['location']['city']}, {hostnode['location']['country']}\n"
                             f"*GPU:* {gpu_type}\n"
-                            f"*Amount:* {gpu_specs['amount']}\n"
-                            f"*Price:* {price}\n"
+                            f"*Amount:* {amount}\n"
+                            f"*Price:* {total_price}\n"
                             f"*Cost per device:* {cost_per_device}\n"
                             f"*Status:* {'Online' if hostnode['status']['online'] else 'Offline'}\n"
                             f"{'='*40}"
