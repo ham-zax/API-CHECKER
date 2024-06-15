@@ -1,7 +1,7 @@
 import requests
 import logging
 from tabulate import tabulate
-from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPE, MAX_GPU_PRICE
+from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE
 
 logging.basicConfig(level=logging.INFO)
 
@@ -53,7 +53,7 @@ def process_response(data, seen_hostnodes):
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
-                if GPU_TYPE in gpu_type and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE):
+                if any(gpu in gpu_type for gpu in GPU_TYPES) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE):
                     current_gpu_nodes.append({
                         'id': key,
                         'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
@@ -90,7 +90,7 @@ def notify_new_cpu_nodes(new_cpu_nodes):
         logging.info(f"Hostnode ID: {node_id}")
 
 def notify_new_gpu_nodes(new_gpu_nodes):
-    logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with {GPU_TYPE} GPU up to price {MAX_GPU_PRICE}:")
+    logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with GPUs {GPU_TYPES} up to price {MAX_GPU_PRICE}:")
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         logging.info(f"Hostnode ID: {node_id}")
