@@ -1,7 +1,7 @@
 import requests
 import logging
 from tabulate import tabulate
-from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE
+from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
@@ -111,6 +111,8 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
                         seen_hostnodes.add(key)
                         new_gpu_nodes.append({**hostnode, 'id': key})
 
+                    efficiency = None if multiplier is None else round((multiplier * amount) / total_price, 2)
+
                     current_gpu_nodes.append({
                         'id': key,
                         'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
@@ -120,12 +122,16 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
                         'status': 'Online' if hostnode['status']['online'] else 'Offline',
                         'cost_per_device': f"${cost_per_device:.2f}",
                         'multiplier': multiplier if multiplier else "N/A",
-                        'efficiency': None if multiplier is None else round((multiplier * amount) / total_price, 2),
+                        'efficiency': efficiency,
                         'calculation': None if multiplier is None else f"({multiplier:.2f} x {amount}) / {total_price:.2f}"
                     })
 
     else:
         logging.error("API request was not successful")
+
+    # Filter by minimum efficiency if specified
+    if MIN_EFFICIENCY > 0:
+        current_gpu_nodes = [node for node in current_gpu_nodes if node['efficiency'] and node['efficiency'] >= MIN_EFFICIENCY]
 
     combined_data = []
     for node in current_cpu_nodes:

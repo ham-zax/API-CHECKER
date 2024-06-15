@@ -12,7 +12,7 @@ CHAT_ID = '376895924'
 CPU_TYPE = "3995"
 GPU_TYPES = ["A40,2","A4000,0.25", "l4,1", "l40,2","4090,1","3080,0.25"]  # Define GPU types and their multipliers directly
 MAX_GPU_PRICE = 0  # Set the maximum price for GPU filtering; 0 means no filtering
-
+MIN_EFFICIENCY = 2
 # GPU Multiplier lookup
 GPU_MULTIPLIERS = {
     "GeForce RTX 3050": 0.1,
