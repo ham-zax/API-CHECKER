@@ -5,7 +5,7 @@ from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
-from typing import List, Dict, Tuple, Union, Optional, Any
+from typing import List, Dict, Tuple, Optional, Any
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,22 +21,27 @@ def send_telegram_message(photo: io.BytesIO) -> bool:
         return False
     return True
 
-def parse_gpu_types(gpu_types: List[str]) -> Dict[str, Optional[float]]:
-    gpu_multipliers = {}
+def parse_gpu_types(gpu_types: List[str]) -> List[Tuple[str, Optional[float]]]:
+    parsed_types = []
     for entry in gpu_types:
         parts = entry.split(",")
         if len(parts) == 2:
             gpu, multiplier = parts
-            gpu_multipliers[gpu.strip().lower()] = float(multiplier)
+            parsed_types.append((gpu.strip().lower(), float(multiplier)))
         elif len(parts) == 1:
             gpu = parts[0]
-            gpu_multipliers[gpu.strip().lower()] = None
+            parsed_types.append((gpu.strip().lower(), None))
         else:
             logging.error(f"Invalid GPU entry: {entry}")
-    return gpu_multipliers
+    return parsed_types
 
-def get_multiplier(gpu_type: str, gpu_multipliers: Dict[str, Optional[float]]) -> Optional[float]:
-    for gpu, multiplier in gpu_multipliers.items():
+def get_multiplier(gpu_type: str, gpu_multipliers: List[Tuple[str, Optional[float]]]) -> Optional[float]:
+    # Sort by length of the GPU name in descending order to prioritize more specific matches
+    gpu_multipliers = sorted(gpu_multipliers, key=lambda x: len(x[0]), reverse=True)
+    for gpu, multiplier in gpu_multipliers:
+        if gpu == gpu_type.lower():
+            return multiplier
+    for gpu, multiplier in gpu_multipliers:
         if gpu in gpu_type.lower():
             return multiplier
     return None
@@ -95,7 +100,7 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
-                if gpu_specs['amount'] > 0 and (any(gpu in gpu_type.lower() for gpu in gpu_multipliers) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE)):
+                if gpu_specs['amount'] > 0 and (any(gpu == gpu_type.lower() for gpu, _ in gpu_multipliers) or any(gpu in gpu_type.lower() for gpu, _ in gpu_multipliers) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE)):
                     amount = gpu_specs['amount']
                     price_per_unit = gpu_specs['price']
                     total_price = price_per_unit * amount
@@ -168,4 +173,3 @@ def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         logging.info(f"Hostnode ID: {node_id}")
-
