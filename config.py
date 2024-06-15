@@ -11,7 +11,7 @@ CHAT_ID = '376895924'
 # Configuration for CPU and GPU search
 CPU_TYPE = "3995"
 MAX_GPU_PRICE = 0  # Set the maximum price for GPU filtering; 0 means no filtering
-MIN_EFFICIENCY = 0
+MIN_EFFICIENCY = 2.5
 GPU_TYPES = [
     "3050,0.1",
     "3060,0.1",

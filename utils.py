@@ -37,7 +37,6 @@ def parse_gpu_types(gpu_types: List[str]) -> List[Tuple[str, Optional[float]]]:
 
 def get_multiplier(gpu_type: str, gpu_multipliers: List[Tuple[str, Optional[float]]]) -> Optional[float]:
     gpu_type = gpu_type.lower()
-    # Sort by length of the GPU name in descending order to prioritize more specific matches
     gpu_multipliers = sorted(gpu_multipliers, key=lambda x: len(x[0]), reverse=True)
     for gpu, multiplier in gpu_multipliers:
         if gpu == gpu_type:
@@ -56,7 +55,7 @@ def generate_table_image(data: List[List[Any]], headers: List[str]) -> io.BytesI
     ax.axis('off')
     table = ax.table(cellText=data, colLabels=headers, cellLoc='center', loc='center')
 
-    col_widths = [0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]
+    col_widths = [0.1,0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]
     for i, width in enumerate(col_widths):
         for j in range(len(data) + 1):
             cell = table[j, i]
@@ -130,22 +129,25 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
     else:
         logging.error("API request was not successful")
 
-    # Filter by minimum efficiency if specified
     if MIN_EFFICIENCY > 0:
         current_gpu_nodes = [node for node in current_gpu_nodes if node['efficiency'] and node['efficiency'] >= MIN_EFFICIENCY]
 
     combined_data = []
+    index = 1
     for node in current_cpu_nodes:
         combined_data.append([
+            index,
             shorten_id(node['id']),
             node['cpu'],
             node['amount'],
             node['price'],
             '-', '-', '-', '-'
         ])
+        index += 1
 
     for node in current_gpu_nodes:
         combined_data.append([
+            index,
             shorten_id(node['id']),
             node['gpu'],
             node['amount'],
@@ -155,8 +157,9 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
             node['efficiency'],
             node['calculation']
         ])
+        index += 1
 
-    headers = ["ID", "Type", "Amount", "Price ($)", "Cost per Device ($)", "Multiplier", "Efficiency", "Calculation"]
+    headers = ["Index", "ID", "Type", "Amount", "Price ($)", "Cost per Device ($)", "Multiplier", "Efficiency", "Calculation"]
     table_image = generate_table_image(combined_data, headers)
 
     if not send_telegram_message(table_image):
@@ -180,3 +183,5 @@ def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         logging.info(f"Hostnode ID: {node_id}")
+
+# Example of how to call process_response function with dummy data
