@@ -1,6 +1,9 @@
 import requests
-from tabulate import tabulate  # Ensure tabulate is imported here if needed
-from config import TELEGRAM_TOKEN, CHAT_ID
+import logging
+from tabulate import tabulate
+from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPE, MAX_GPU_PRICE
+
+logging.basicConfig(level=logging.INFO)
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -13,18 +16,20 @@ def send_telegram_message(message):
         response = requests.post(url, data=data)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"Failed to send Telegram message: {e}")
+        logging.error(f"Failed to send Telegram message: {e}")
 
 def process_response(data, seen_hostnodes):
-    new_3995_nodes = []
-    current_3995_nodes = []
+    new_cpu_nodes = []
+    new_gpu_nodes = []
+    current_cpu_nodes = []
+    current_gpu_nodes = []
 
     if data.get("success"):
         hostnodes = data.get("hostnodes", {})
         for key, hostnode in hostnodes.items():
             cpu_info = hostnode['specs']['cpu']
-            if "3995" in cpu_info['type']:
-                current_3995_nodes.append({
+            if CPU_TYPE in cpu_info['type']:
+                current_cpu_nodes.append({
                     'id': key,
                     'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
                     'cpu': cpu_info['type'],
@@ -34,7 +39,7 @@ def process_response(data, seen_hostnodes):
                 })
                 if key not in seen_hostnodes:
                     seen_hostnodes.add(key)
-                    new_3995_nodes.append({**hostnode, 'id': key})
+                    new_cpu_nodes.append({**hostnode, 'id': key})
                     message = (
                         f"Hostnode ID: {key}\n"
                         f"Location: {hostnode['location']['city']}, {hostnode['location']['country']}\n"
@@ -45,16 +50,47 @@ def process_response(data, seen_hostnodes):
                     if len(message) > 4096:
                         message = message[:4093] + "..."
                     send_telegram_message(message)
+
+            gpu_info = hostnode['specs']['gpu']
+            for gpu_type, gpu_specs in gpu_info.items():
+                if GPU_TYPE in gpu_type and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE):
+                    current_gpu_nodes.append({
+                        'id': key,
+                        'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
+                        'gpu': gpu_type,
+                        'amount': gpu_specs['amount'],
+                        'price': gpu_specs['price'],
+                        'status': 'Online' if hostnode['status']['online'] else 'Offline'
+                    })
+                    if key not in seen_hostnodes:
+                        seen_hostnodes.add(key)
+                        new_gpu_nodes.append({**hostnode, 'id': key})
+                        message = (
+                            f"Hostnode ID: {key}\n"
+                            f"Location: {hostnode['location']['city']}, {hostnode['location']['country']}\n"
+                            f"GPU: {gpu_type} - Amount: {gpu_specs['amount']} - Price: {gpu_specs['price']}\n"
+                            f"Status: {'Online' if hostnode['status']['online'] else 'Offline'}\n"
+                            f"{'='*40}"
+                        )
+                        if len(message) > 4096:
+                            message = message[:4093] + "..."
+                        send_telegram_message(message)
     else:
-        print("API request was not successful")
+        logging.error("API request was not successful")
     
-    return new_3995_nodes, current_3995_nodes
+    return new_cpu_nodes, current_cpu_nodes, new_gpu_nodes, current_gpu_nodes
 
 def handle_error(error):
-    print(f"An error occurred: {error}")
+    logging.error(f"An error occurred: {error}")
 
-def notify_new_3995(new_3995_nodes):
-    print(f"Found {len(new_3995_nodes)} new hostnodes with 3995 CPU:")
-    for node in new_3995_nodes:
+def notify_new_cpu_nodes(new_cpu_nodes):
+    logging.info(f"Found {len(new_cpu_nodes)} new hostnodes with {CPU_TYPE} CPU:")
+    for node in new_cpu_nodes:
         node_id = node.get('id', 'Unknown ID')
-        print(f"Hostnode ID: {node_id}")
+        logging.info(f"Hostnode ID: {node_id}")
+
+def notify_new_gpu_nodes(new_gpu_nodes):
+    logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with {GPU_TYPE} GPU up to price {MAX_GPU_PRICE}:")
+    for node in new_gpu_nodes:
+        node_id = node.get('id', 'Unknown ID')
+        logging.info(f"Hostnode ID: {node_id}")
