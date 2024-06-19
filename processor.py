@@ -1,25 +1,13 @@
-import requests
+from typing import List, Dict, Tuple, Optional, Any
+from config import config
 import logging
 from tabulate import tabulate
-from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY
 import matplotlib.pyplot as plt
-from PIL import Image
 import io
-from typing import List, Dict, Tuple, Optional, Any
+
+from notifier import send_telegram_message
 
 logging.basicConfig(level=logging.INFO)
-
-def send_telegram_message(photo: io.BytesIO) -> bool:
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    data = {'chat_id': CHAT_ID}
-    try:
-        files = {'photo': photo}
-        response = requests.post(url, data=data, files=files)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to send Telegram message: {e}")
-        return False
-    return True
 
 def parse_gpu_types(gpu_types: List[str]) -> List[Tuple[str, Optional[float]]]:
     parsed_types = []
@@ -78,14 +66,14 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
     current_cpu_nodes = []
     current_gpu_nodes = []
 
-    gpu_multipliers = parse_gpu_types(GPU_TYPES)
+    gpu_multipliers = parse_gpu_types(config.GPU_TYPES)
     telegram_failed = False
 
     if data.get("success"):
         hostnodes = data.get("hostnodes", {})
         for key, hostnode in hostnodes.items():
             cpu_info = hostnode['specs']['cpu']
-            if CPU_TYPE in cpu_info['type']:
+            if config.CPU_TYPE in cpu_info['type']:
                 if key not in seen_hostnodes:
                     seen_hostnodes.add(key)
                     new_cpu_nodes.append({**hostnode, 'id': key})
@@ -94,13 +82,13 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
                     'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
                     'cpu': cpu_info['type'],
                     'amount': cpu_info['amount'],
-                    'price': f"${cpu_info['price']:.2f}",
+                    'price': f"${cpu_info['price']:.2f}",  # Ensure the f-string is properly formatted
                     'status': 'Online' if hostnode['status']['online'] else 'Offline'
                 })
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
-                if gpu_specs['amount'] > 0 and (any(gpu == gpu_type.lower() for gpu, _ in gpu_multipliers) or any(gpu in gpu_type.lower() for gpu, _ in gpu_multipliers) and (MAX_GPU_PRICE == 0 or gpu_specs['price'] <= MAX_GPU_PRICE)):
+                if gpu_specs['amount'] > 0 and (any(gpu == gpu_type.lower() for gpu, _ in gpu_multipliers) or any(gpu in gpu_type.lower() for gpu, _ in gpu_multipliers) and (config.MAX_GPU_PRICE == 0 or gpu_specs['price'] <= config.MAX_GPU_PRICE)):
                     amount = gpu_specs['amount']
                     price_per_unit = gpu_specs['price']
                     total_price = price_per_unit * amount
@@ -129,8 +117,8 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
     else:
         logging.error("API request was not successful")
 
-    if MIN_EFFICIENCY > 0:
-        current_gpu_nodes = [node for node in current_gpu_nodes if node['efficiency'] and node['efficiency'] >= MIN_EFFICIENCY]
+    if config.MIN_EFFICIENCY > 0:
+        current_gpu_nodes = [node for node in current_gpu_nodes if node['efficiency'] and node['efficiency'] >= config.MIN_EFFICIENCY]
 
     combined_data = []
     index = 1
@@ -168,20 +156,3 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
     print(tabulate(combined_data, headers=headers))
 
     return new_cpu_nodes, current_cpu_nodes, new_gpu_nodes, current_gpu_nodes
-
-def handle_error(error: Exception) -> None:
-    logging.error(f"An error occurred: {error}")
-
-def notify_new_cpu_nodes(new_cpu_nodes: List[Dict[str, Any]]) -> None:
-    logging.info(f"Found {len(new_cpu_nodes)} new hostnodes with {CPU_TYPE} CPU:")
-    for node in new_cpu_nodes:
-        node_id = node.get('id', 'Unknown ID')
-        # logging.info(f"Hostnode ID: {node_id}")
-
-def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
-    logging.info(f"Found {len(new_gpu_nodes)} new hostnodes with GPUs up to price {MAX_GPU_PRICE}:")
-    for node in new_gpu_nodes:
-        node_id = node.get('id', 'Unknown ID')
-        # logging.info(f"Hostnode ID: {node_id}")
-
-# Example of how to call process_response function with dummy data

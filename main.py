@@ -1,25 +1,16 @@
-import requests
 import time
 import signal
 import sys
 import random
 import logging
-from tabulate import tabulate
-from config import API_URL, PARAMS, INTERVAL
-from utils import process_response, handle_error, notify_new_cpu_nodes, notify_new_gpu_nodes
+from api_fetcher import fetch_api_data
+from processor import process_response
+from notifier import notify_new_cpu_nodes, notify_new_gpu_nodes
+from config import config
 
 logging.basicConfig(level=logging.INFO)
 
 seen_hostnodes = set()
-
-def fetch_api_data():
-    try:
-        response = requests.get(API_URL, params=PARAMS)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        handle_error(e)
-        return None
 
 def main():
     def signal_handler(sig, frame):
@@ -39,18 +30,7 @@ def main():
             if new_gpu_nodes:
                 notify_new_gpu_nodes(new_gpu_nodes)
 
-            # Display current CPU nodes in the console
-            if current_cpu_nodes:
-                table = tabulate(current_cpu_nodes, headers="keys")
-                logging.info(f"\n{table}")
-
-            # Display current GPU nodes in the console
-            if current_gpu_nodes:
-                table = tabulate(current_gpu_nodes, headers="keys")
-                logging.info(f"\n{table}")
-        
-        # Calculate the next sleep interval randomly within the specified range
-        sleep_interval = random.randint(int(INTERVAL * 0.8), int(INTERVAL * 1.2))
+        sleep_interval = random.randint(int(config.INTERVAL * 0.8), int(config.INTERVAL * 1.2))
         logging.info(f"Sleeping for {sleep_interval} seconds...")
         time.sleep(sleep_interval)
 
