@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.INFO)
 seen_hostnodes = set()
 
 def main():
+    """Main script to fetch API data, process it, and notify about new nodes."""
     def signal_handler(sig, frame):
         logging.info("Stopping the script...")
         sys.exit(0)
