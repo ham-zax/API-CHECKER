@@ -1,7 +1,7 @@
 import requests
 import logging
 from tabulate import tabulate
-from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY
+from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY, ENABLE_CPU
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
@@ -49,13 +49,16 @@ def get_multiplier(gpu_type: str, gpu_multipliers: List[Tuple[str, Optional[floa
 def shorten_id(node_id: str) -> str:
     return f"{node_id[:2]}..{node_id[-2:]}"
 
-def generate_table_image(data: List[List[Any]], headers: List[str]) -> io.BytesIO:
-    fig, ax = plt.subplots(figsize=(15, len(data) * 0.5))
+def generate_table_image(data: List[List[Any]], headers: List[str]) -> Optional[io.BytesIO]:
+    if not data:
+        return None  # Return None if there's no data to generate the table
+
+    fig, ax = plt.subplots(figsize=(15, max(len(data) * 0.5, 1)))
     ax.axis('tight')
     ax.axis('off')
     table = ax.table(cellText=data, colLabels=headers, cellLoc='center', loc='center')
 
-    col_widths = [0.1,0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]
+    col_widths = [0.1, 0.08, 0.35, 0.1, 0.1, 0.1, 0.1, 0.1, 0.17]
     for i, width in enumerate(col_widths):
         for j in range(len(data) + 1):
             cell = table[j, i]
@@ -84,19 +87,20 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
     if data.get("success"):
         hostnodes = data.get("hostnodes", {})
         for key, hostnode in hostnodes.items():
-            cpu_info = hostnode['specs']['cpu']
-            if CPU_TYPE in cpu_info['type']:
-                if key not in seen_hostnodes:
-                    seen_hostnodes.add(key)
-                    new_cpu_nodes.append({**hostnode, 'id': key})
-                current_cpu_nodes.append({
-                    'id': key,
-                    'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
-                    'cpu': cpu_info['type'],
-                    'amount': cpu_info['amount'],
-                    'price': f"${cpu_info['price']:.2f}",
-                    'status': 'Online' if hostnode['status']['online'] else 'Offline'
-                })
+            if ENABLE_CPU:
+                cpu_info = hostnode['specs']['cpu']
+                if CPU_TYPE in cpu_info['type']:
+                    if key not in seen_hostnodes:
+                        seen_hostnodes.add(key)
+                        new_cpu_nodes.append({**hostnode, 'id': key})
+                    current_cpu_nodes.append({
+                        'id': key,
+                        'location': f"{hostnode['location']['city']}, {hostnode['location']['country']}",
+                        'cpu': cpu_info['type'],
+                        'amount': cpu_info['amount'],
+                        'price': f"${cpu_info['price']:.2f}",
+                        'status': 'Online' if hostnode['status']['online'] else 'Offline'
+                    })
 
             gpu_info = hostnode['specs']['gpu']
             for gpu_type, gpu_specs in gpu_info.items():
@@ -134,16 +138,17 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
 
     combined_data = []
     index = 1
-    for node in current_cpu_nodes:
-        combined_data.append([
-            index,
-            shorten_id(node['id']),
-            node['cpu'],
-            node['amount'],
-            node['price'],
-            '-', '-', '-', '-'
-        ])
-        index += 1
+    if ENABLE_CPU:
+        for node in current_cpu_nodes:
+            combined_data.append([
+                index,
+                shorten_id(node['id']),
+                node['cpu'],
+                node['amount'],
+                node['price'],
+                '-', '-', '-', '-'
+            ])
+            index += 1
 
     for node in current_gpu_nodes:
         combined_data.append([
@@ -160,10 +165,13 @@ def process_response(data: Dict[str, Any], seen_hostnodes: set) -> Tuple[List[Di
         index += 1
 
     headers = ["Index", "ID", "Type", "Amount", "Price ($)", "Cost/Device ($)", "Multiplier", "Efficiency", "Calculation"]
-    table_image = generate_table_image(combined_data, headers)
 
-    if not send_telegram_message(table_image):
-        logging.error("Failed to send some Telegram notifications")
+    if combined_data:  # Check if there is data to generate the table
+        table_image = generate_table_image(combined_data, headers)
+        if table_image and not send_telegram_message(table_image):
+            logging.error("Failed to send some Telegram notifications")
+    else:
+        logging.info("No data available to generate the table image.")
 
     print(tabulate(combined_data, headers=headers))
 
@@ -183,5 +191,3 @@ def notify_new_gpu_nodes(new_gpu_nodes: List[Dict[str, Any]]) -> None:
     for node in new_gpu_nodes:
         node_id = node.get('id', 'Unknown ID')
         # logging.info(f"Hostnode ID: {node_id}")
-
-# Example of how to call process_response function with dummy data

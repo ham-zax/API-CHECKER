@@ -5,7 +5,7 @@ import sys
 import random
 import logging
 from tabulate import tabulate
-from config import API_URL, PARAMS, INTERVAL
+from config import API_URL, PARAMS, INTERVAL, ENABLE_CPU
 from utils import process_response, handle_error, notify_new_cpu_nodes, notify_new_gpu_nodes
 
 logging.basicConfig(level=logging.INFO)
@@ -34,13 +34,13 @@ def main():
         data = fetch_api_data()
         if data:
             new_cpu_nodes, current_cpu_nodes, new_gpu_nodes, current_gpu_nodes = process_response(data, seen_hostnodes)
-            if new_cpu_nodes:
+            if ENABLE_CPU and new_cpu_nodes:
                 notify_new_cpu_nodes(new_cpu_nodes)
             if new_gpu_nodes:
                 notify_new_gpu_nodes(new_gpu_nodes)
 
             # Display current CPU nodes in the console
-            if current_cpu_nodes:
+            if ENABLE_CPU and current_cpu_nodes:
                 table = tabulate(current_cpu_nodes, headers="keys")
                 logging.info(f"\n{table}")
 

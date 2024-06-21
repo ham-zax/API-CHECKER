@@ -8,8 +8,9 @@ INTERVAL = 60 # Interval in seconds
 
 TELEGRAM_TOKEN = '7119782068:AAHm5qatChCeyaHdNmlt6FBGF8NxVxj0OV4'
 CHAT_ID = '376895924'
+ENABLE_CPU = False
 # Configuration for CPU and GPU search
-CPU_TYPE = "8995"
+CPU_TYPE = "3995"
 MAX_GPU_PRICE = 0  # Set the maximum price for GPU filtering; 0 means no filtering
 MIN_EFFICIENCY = 3
 GPU_TYPES = [
