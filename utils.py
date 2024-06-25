@@ -1,7 +1,8 @@
+# notification.py
 import requests
 import logging
 from tabulate import tabulate
-from config import TELEGRAM_TOKEN, CHAT_ID, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY, ENABLE_CPU
+from config import TELEGRAM_TOKEN, CHAT_IDS, CPU_TYPE, GPU_TYPES, MAX_GPU_PRICE, MIN_EFFICIENCY, ENABLE_CPU
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
@@ -11,15 +12,30 @@ logging.basicConfig(level=logging.INFO)
 
 def send_telegram_message(photo: io.BytesIO) -> bool:
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto"
-    data = {'chat_id': CHAT_ID}
-    try:
-        files = {'photo': photo}
-        response = requests.post(url, data=data, files=files)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to send Telegram message: {e}")
-        return False
-    return True
+    success = True
+    for chat_id in CHAT_IDS:
+        logging.info(f"Sending message to chat ID: {chat_id}")
+        data = {'chat_id': chat_id}
+        try:
+            # Check if the photo data is empty
+            photo.seek(0, 2)  # Seek to the end of the buffer
+            photo_size = photo.tell()  # Get the size of the buffer
+            photo.seek(0)  # Seek back to the beginning of the buffer
+            if photo_size == 0:
+                logging.error(f"Photo data is empty for chat ID {chat_id}")
+                success = False
+                continue
+
+            files = {'photo': photo}
+            response = requests.post(url, data=data, files=files)
+            response.raise_for_status()
+            logging.info(f"Message sent successfully to chat ID: {chat_id}")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to send Telegram message to chat ID {chat_id}: {e}")
+            if response.text:
+                logging.error(f"Telegram API response: {response.text}")
+            success = False
+    return success
 
 def parse_gpu_types(gpu_types: List[str]) -> List[Tuple[str, Optional[float]]]:
     parsed_types = []
@@ -72,6 +88,12 @@ def generate_table_image(data: List[List[Any]], headers: List[str]) -> Optional[
     plt.savefig(buf, format='png')
     buf.seek(0)
     plt.close(fig)
+
+    # Log the size of the generated photo data
+    buf.seek(0, 2)  # Seek to the end of the buffer
+    photo_size = buf.tell()  # Get the size of the buffer
+    buf.seek(0)  # Seek back to the beginning of the buffer
+    logging.info(f"Generated photo size: {photo_size} bytes")
 
     return buf
 
